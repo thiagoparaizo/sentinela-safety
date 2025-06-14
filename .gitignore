@@ -64,7 +64,7 @@ cover/
 *.pot
 
 # Django stuff:
-*.log
+
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -339,10 +339,6 @@ Temporary Items
 secrets.json
 config.local.json
 
-# Logs do projeto
-logs/*.log
-*.log.*
-wokwi_logs.log
 
 # Dados temporários
 temp/
