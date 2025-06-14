@@ -331,11 +331,12 @@ SENTINELA-SAFETY/
 ### 1. **Simulação no Wokwi**
 ```bash
 # 1. Acesse: https://wokwi.com/projects/new/esp32
-# 2. Monte o circuito conforme docs/diagrama_pinagem.jpg
+# 2. Monte o circuito conforme docs/diagrama_pinagem.jpg ou use o diagrama 
 # 3. Cole o código de src/wearable_safety.ino
 # 4. Execute a simulação
 # 5. Siga o guia docs/wokwi_guide.md para simular quedas
 ```
+[diagrama](docs/wowki_diagram.json)
 
 ### 2. **Análise de Dados (Python)**
 
