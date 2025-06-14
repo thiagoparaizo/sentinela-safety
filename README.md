@@ -350,7 +350,7 @@ pip --version
 #### **Configuração do Ambiente:**
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/seu-usuario/sentinela-safety.git
+git clone https://github.com/thiagoparaizo/sentinela-safety.git
 cd sentinela-safety
 
 # 2. Criar ambiente virtual
