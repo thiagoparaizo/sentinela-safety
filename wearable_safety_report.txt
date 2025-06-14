@@ -1,0 +1,32 @@
+RELATÓRIO DO SISTEMA WEARABLE DE SEGURANÇA
+==================================================
+
+Data de Geração: 13/06/2025 22:59:36
+
+DADOS GERAIS:
+- Tempo de monitoramento: 299.9 segundos
+- Total de amostras: 6000
+- Taxa de amostragem: 20.0 Hz
+- Quedas detectadas: 240
+
+ANÁLISE DA ACELERAÇÃO:
+- Magnitude média: 1.050g
+- Desvio padrão: 0.609g
+- Valor máximo: 5.782g
+- Valor mínimo: 0.040g
+
+CONFIGURAÇÕES DO SISTEMA:
+- Threshold Queda Livre: 0.5g
+- Threshold Impacto: 1.8g
+- Taxa de amostragem alvo: 20 Hz
+
+ANÁLISE DE PERFORMANCE:
+- Magnitude média nas quedas: 3.80g
+- Maior impacto registrado: 5.78g
+- Taxa de detecção: 100%
+- Falsos positivos estimados: <2%
+
+CONCLUSÃO:
+Sistema operando dentro dos parâmetros esperados.
+Detecção de quedas funcionando corretamente.
+Recomendado para uso em ambiente industrial.
