@@ -344,6 +344,7 @@ sentinela-safety/
 ├── 📄 pipeline.py            # ✨ Pipeline integrado
 ├── 📄 sentinela.db           # Banco MySQL (via Docker)
 ├── 📄 requirements.txt
+├── 📄 README_sprint2.md
 └── 📄 README.md              # Este arquivo
 ```
 
@@ -474,7 +475,7 @@ TOTAL DE ALERTAS CRÍTICOS/ALTOS: 3
 4. Copie dados do Monitor Serial
 5. Salve como CSV
 
-Obs: Mais detalhes no [README.md (Sprint 2)](README_sprint2.md)
+Obs: Mais detalhes no [README.md (Sprint 2)](README_sprint2_.md)
 
 
 ### **2. Carregar no Banco**
@@ -690,7 +691,7 @@ Nosso projeto prova que com criatividade, conhecimento técnico e propósito cla
 **Repositório**: [GitHub - SENTINELA-SAFETY](https://github.com/thiagoparaizo/sentinela-safety)
 ## 🗃 Histórico de lançamentos
 
-* 1.0.0 - 13/06/2025 - [README.md (Sprint 2)](README_sprint2.md)
+* 1.0.0 - 13/06/2025 - [README.md (Sprint 2)](README_sprint2_.md)
 * 1.0.1 - 03/10/2025
 
 ## 📋 Licença
