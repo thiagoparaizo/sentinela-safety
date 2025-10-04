@@ -42,14 +42,16 @@ class PipelineIntegrado:
             schema = f.read()
         
         # Criar banco
-        conn = sqlite3.connect('sentinela.db')
+        from db.load_data import criar_banco_sqlite, criar_banco_sqlite
+        import mysql.connector
+        conn = criar_banco_sqlite()
         cursor = conn.cursor()
         
         for statement in schema.split(';'):
             if statement.strip():
                 try:
                     cursor.execute(statement)
-                except sqlite3.OperationalError as e:
+                except mysql.connector.errors.DatabaseError as e:
                     if 'already exists' not in str(e):
                         print(f"   ⚠️ Aviso: {e}")
         
@@ -66,9 +68,9 @@ class PipelineIntegrado:
         try:
             # Importar e executar loader
             sys.path.insert(0, str(self.base_path))
-            from db.load_data import carregar_dados_csv, conectar_banco_sqlite, criar_banco_sqlite, consultas_analise
+            from db.load_data import carregar_dados_csv, conectar_banco_mysql, criar_banco_sqlite, consultas_analise
             
-            conn = conectar_banco_sqlite('sentinela.db')
+            conn = conectar_banco_mysql()
             #conn = criar_banco_sqlite('sentinela.db')
             carregar_dados_csv(conn, 'data/sample_data.csv')
             consultas_analise(conn)
@@ -90,7 +92,7 @@ class PipelineIntegrado:
         try:
             from ml.train_model import FallDetectionML
             
-            ml = FallDetectionML('sentinela.db')
+            ml = FallDetectionML()
             X_test, y_test, y_pred, features = ml.treinar_modelo()
             ml.visualizar_resultados(X_test, y_test, y_pred, features)
             
@@ -111,7 +113,8 @@ class PipelineIntegrado:
         import pandas as pd
         from datetime import datetime
         
-        conn = sqlite3.connect('sentinela.db')
+        from db.load_data import conectar_banco_mysql
+        conn = conectar_banco_mysql()
         
         # Buscar alertas críticos
         df_alertas = pd.read_sql_query("""

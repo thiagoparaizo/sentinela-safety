@@ -68,7 +68,7 @@ void setup() {
   testComponents();
   
   // Cabeçalho para dados CSV
-  Serial.println("=== SISTEMA WEARABLE DE SEGURANÇA INDUSTRIAL ===");
+  Serial.println("=== SENTINELA - SISTEMA WEARABLE DE SEGURANÇA INDUSTRIAL ===");
   Serial.println("Inicializando monitoramento de quedas...");
   Serial.println();
   Serial.println("Timestamp(ms),Ax(g),Ay(g),Az(g),Magnitude(g),Queda,Status");

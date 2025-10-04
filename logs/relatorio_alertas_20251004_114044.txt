@@ -1,0 +1,45 @@
+======================================================================
+RELATÓRIO DE ALERTAS - SISTEMA WEARABLE DE SEGURANÇA
+======================================================================
+
+Data de Geração: 04/10/2025 11:40:44
+
+TOTAL DE ALERTAS CRÍTICOS/ALTOS: 3
+
+DETALHAMENTO DOS ALERTAS:
+----------------------------------------------------------------------
+
+ALERTA #1
+  Tipo: queda
+  Prioridade: ALTA
+  Trabalhador: João Silva (Produção)
+  Magnitude: 2.04g
+  Mensagem: ALERTA: Queda detectada com magnitude 2.04g
+  Data/Hora: 2025-10-04 13:40:40
+  Status: PENDENTE
+----------------------------------------------------------------------
+
+ALERTA #2
+  Tipo: queda
+  Prioridade: ALTA
+  Trabalhador: João Silva (Produção)
+  Magnitude: 2.04g
+  Mensagem: ALERTA: Queda detectada com magnitude 2.04g
+  Data/Hora: 2025-10-04 14:40:40
+  Status: PENDENTE
+----------------------------------------------------------------------
+
+ALERTA #3
+  Tipo: queda
+  Prioridade: ALTA
+  Trabalhador: João Silva (Produção)
+  Magnitude: 2.04g
+  Mensagem: ALERTA: Queda detectada com magnitude 2.04g
+  Data/Hora: 2025-10-04 15:40:40
+  Status: PENDENTE
+----------------------------------------------------------------------
+
+
+======================================================================
+FIM DO RELATÓRIO
+======================================================================

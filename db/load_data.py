@@ -3,17 +3,25 @@
 CARGA DE DADOS NO BANCO
 """
 
-import sqlite3
+import mysql.connector
 import pandas as pd
+from datetime import datetime
 from datetime import datetime
 
 
-def conectar_banco_sqlite(db_path='sentinela.db'):
-    return sqlite3.connect(db_path)
+def conectar_banco_mysql():
+    """Conecta ao banco MySQL"""
+    return mysql.connector.connect(
+        host='localhost',
+        port=3306,
+        user='sentinela',
+        password='password',
+        database='sentinela'
+    )
 
-def criar_banco_sqlite(db_path='sentinela.db'):
+def criar_banco_sqlite():
     """Cria o banco SQLite e estrutura inicial"""
-    conn = sqlite3.connect(db_path)
+    conn = conectar_banco_mysql()
     cursor = conn.cursor()
     
     # Executar schema SQL
@@ -24,7 +32,7 @@ def criar_banco_sqlite(db_path='sentinela.db'):
             if statement.strip():
                 try:
                     cursor.execute(statement)
-                except sqlite3.OperationalError as e:
+                except mysql.connector.errors.DatabaseError as e:
                     if 'already exists' not in str(e):
                         print(f"Erro: {e}")
     
@@ -41,41 +49,61 @@ def carregar_dados_csv(conn, csv_path='data/sample_data.csv'):
     cursor = conn.cursor()
     
     # Inserir trabalhador e dispositivo padrão se não existirem
-    cursor.execute("""
-        INSERT OR IGNORE INTO trabalhadores (id_trabalhador, nome, matricula, setor) 
-        VALUES (1, 'João Silva', 'TRB001', 'Produção')
-    """)
+    # cursor.execute("""
+    #     INSERT INTO trabalhadores (id_trabalhador, nome, matricula, setor) 
+    #     VALUES (1, 'João Silva', 'TRB001', 'Produção')
+    # """)
     
-    cursor.execute("""
-        INSERT OR IGNORE INTO dispositivos (id_dispositivo, serial_number, modelo, status) 
-        VALUES (1, 'ESP32-WRB-001', 'ESP32-WROOM', 'ativo')
-    """)
+    # cursor.execute("""
+    #     INSERT INTO dispositivos (id_dispositivo, serial_number, modelo, status) 
+    #     VALUES (1, 'ESP32-WRB-001', 'ESP32-WROOM', 'ativo')
+    # """)
     
     # Inserir leituras
     id_leitura = 1
     eventos_queda = []
     
-    for idx, row in df.iterrows():
-        queda_detectada = 1 if row['Queda'] == 1 else 0
+    try:
+        for idx, row in df.iterrows():
+            
+            queda_detectada = 1 if row['Queda'] == 1 else 0
+            
+            timestamp_ms = int(row['Timestamp(ms)'])
+            aceleracao_x = float(row['Ax(g)'])
+            aceleracao_y = float(row['Ay(g)'])
+            aceleracao_z = float(row['Az(g)'])
+            magnitude = float(row['Magnitude(g)'])
+            status_movimento = row['Status']
+            
+            try:
+                # MySQL usa %s como placeholder
+                cursor.execute("""
+                    INSERT INTO leituras_sensores 
+                    (id_leitura, id_trabalhador, id_dispositivo, timestamp_ms, 
+                    aceleracao_x, aceleracao_y, aceleracao_z, magnitude, 
+                    status_movimento, queda_detectada)
+                    VALUES (%s, 1, 1, %s, %s, %s, %s, %s, %s, %s)
+                """, (id_leitura, timestamp_ms, aceleracao_x, aceleracao_y, 
+                    aceleracao_z, magnitude, status_movimento, queda_detectada))
+            except mysql.connector.errors.IntegrityError as e:
+                print(f"Erro ao inserir leitura {id_leitura}: {e}")
+                continue
+
+            
+            
+            
+            # Se foi queda, criar evento
+            if queda_detectada:
+                eventos_queda.append({
+                    'id_leitura': id_leitura,
+                    'timestamp': timestamp_ms,
+                    'magnitude': magnitude
+                })
+            
+            id_leitura += 1
+    except Exception as e:
+        print(f"Erro ao inserir leitura {id_leitura}: {e}")
         
-        cursor.execute("""
-            INSERT INTO leituras_sensores 
-            (id_leitura, id_trabalhador, id_dispositivo, timestamp_ms, 
-             aceleracao_x, aceleracao_y, aceleracao_z, magnitude, 
-             status_movimento, queda_detectada)
-            VALUES (?, 1, 1, ?, ?, ?, ?, ?, ?, ?)
-        """, (id_leitura, row['Timestamp(ms)'], row['Ax(g)'], row['Ay(g)'], 
-              row['Az(g)'], row['Magnitude(g)'], row['Status'], queda_detectada))
-        
-        # Se foi queda, criar evento
-        if queda_detectada:
-            eventos_queda.append({
-                'id_leitura': id_leitura,
-                'timestamp': row['Timestamp(ms)'],
-                'magnitude': row['Magnitude(g)']
-            })
-        
-        id_leitura += 1
     
     # Inserir eventos de queda
     id_evento = 1
@@ -92,7 +120,7 @@ def carregar_dados_csv(conn, csv_path='data/sample_data.csv'):
             INSERT INTO eventos_queda 
             (id_evento, id_leitura, id_trabalhador, timestamp_queda, 
              magnitude_impacto, gravidade, status_atendimento, tempo_resposta_segundos)
-            VALUES (?, ?, 1, ?, ?, ?, 'pendente', ?)
+            VALUES (%s, %s, 1, %s, %s, %s, 'pendente', %s)
         """, (id_evento, evento['id_leitura'], evento['timestamp'], 
               evento['magnitude'], gravidade, 250))
         
@@ -102,7 +130,7 @@ def carregar_dados_csv(conn, csv_path='data/sample_data.csv'):
             cursor.execute("""
                 INSERT INTO alertas 
                 (id_alerta, id_evento, tipo_alerta, nivel_prioridade, mensagem, enviado)
-                VALUES (?, ?, 'queda', ?, ?, FALSE)
+                VALUES (%s, %s, 'queda', %s, %s, FALSE)
             """, (id_evento, id_evento, nivel, 
                   f'ALERTA: Queda detectada com magnitude {evento["magnitude"]:.2f}g'))
         
@@ -154,7 +182,7 @@ if __name__ == "__main__":
     print("🔧 Iniciando carga de dados no banco...")
     
     # Conectar ao banco
-    conn = conectar_banco_sqlite()
+    conn = conectar_banco_mysql()
     
     # Criar banco
     ##conn = criar_banco_sqlite()

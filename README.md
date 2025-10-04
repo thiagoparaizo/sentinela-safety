@@ -33,398 +33,562 @@ Este projeto desenvolve um sistema wearable de segurança para detecção autom�
 - **Objetivo Prático**: Simular um ambiente industrial digitalizado usando ESP32 e sensores
 
 
-## 🔧 Componentes Utilizados
-
-### Hardware (Simulado no Wokwi)
-- **ESP32**: Microcontrolador principal
-- **MPU6050**: Sensor acelerômetro/giroscópio de 6 eixos
-- **LED Vermelho**: Indicador visual de alerta
-- **Buzzer**: Alerta sonoro
-- **Resistores**: 220Ω para LED
-
-### Justificativa da Escolha dos Sensores (Simulação)
-
-1. **MPU6050 (Acelerômetro/Giroscópio)**:
-   - **Por que escolhemos**: Capaz de detectar mudanças rápidas na aceleração e orientação
-   - **Aplicação**: Identifica padrões de queda livre seguidos por impacto súbito
-   - **Vantagem**: Sensor de alta precisão com 6 graus de liberdade
-   - **Uso na Indústria**: Amplamente usado em dispositivos wearables de segurança
-  
-
-2. **LED + Buzzer**:
-   - **Função**: Alertas visuais e sonoros imediatos
-   - **Importância**: Permite resposta rápida de equipes de resgate
 
 
-
-## 🔌 Esquema do Circuito
-
-```
-ESP32 Pin Connections:
-- GPIO21 (SDA) → MPU6050 SDA
-- GPIO22 (SCL) → MPU6050 SCL  
-- GPIO2 → LED Vermelho (Alerta)
-- GPIO4 → Buzzer
-- 3.3V → MPU6050 VCC
-- GND → MPU6050 GND + LED GND + Buzzer GND
-```
-
-## 💻 Código Principal
-
-```cpp
-#include <Wire.h>
-#include <MPU6050.h>
-
-// Configurações do sensor
-MPU6050 mpu;
-
-// Pinos de saída
-const int LED_ALERTA = 2;
-const int BUZZER = 4;
-
-// Variáveis para detecção de queda
-float accel_magnitude;
-float threshold_freefall = 0.5;  // Limiar de queda livre (g)
-float threshold_impact = 1.8;    // Limiar de impacto (g)
-bool in_freefall = false;
-unsigned long freefall_start = 0;
-const unsigned long min_freefall_duration = 100; // ms
-
-// Variáveis para coleta de dados
-struct SensorData {
-  unsigned long timestamp;
-  float ax, ay, az;
-  float magnitude;
-  bool fall_detected;
-};
-
-SensorData data_buffer[100];
-int data_index = 0;
-
-void setup() {
-  Serial.begin(115200);
-  Wire.begin();
-  
-  // Inicializar MPU6050
-  mpu.initialize();
-  if (!mpu.testConnection()) {
-    Serial.println("Erro: MPU6050 não conectado!");
-    while(1);
-  }
-  
-  // Configurar pinos
-  pinMode(LED_ALERTA, OUTPUT);
-  pinMode(BUZZER, OUTPUT);
-  
-  Serial.println("=== SISTEMA WEARABLE DE SEGURANÇA ===");
-  Serial.println("Monitoramento ativo de quedas...");
-  Serial.println("Timestamp,Ax,Ay,Az,Magnitude,Queda_Detectada");
-}
-
-void loop() {
-  // Ler dados do acelerômetro
-  int16_t ax, ay, az;
-  mpu.getAcceleration(&ax, &ay, &az);
-  
-  // Converter para unidades g (gravidade)
-  float ax_g = ax / 16384.0;
-  float ay_g = ay / 16384.0;
-  float az_g = az / 16384.0;
-  
-  // Calcular magnitude do vetor aceleração
-  accel_magnitude = sqrt(ax_g*ax_g + ay_g*ay_g + az_g*az_g);
-  
-  // Algoritmo de detecção de queda
-  bool fall_detected = detectFall(accel_magnitude);
-  
-  // Armazenar dados
-  storeSensorData(millis(), ax_g, ay_g, az_g, accel_magnitude, fall_detected);
-  
-  // Enviar dados para Serial Monitor
-  Serial.print(millis());
-  Serial.print(",");
-  Serial.print(ax_g, 3);
-  Serial.print(",");
-  Serial.print(ay_g, 3);
-  Serial.print(",");
-  Serial.print(az_g, 3);
-  Serial.print(",");
-  Serial.print(accel_magnitude, 3);
-  Serial.print(",");
-  Serial.println(fall_detected ? "1" : "0");
-  
-  if (fall_detected) {
-    triggerAlert();
-  }
-  
-  delay(50); // 20Hz de amostragem
-}
-
-bool detectFall(float magnitude) {
-  unsigned long current_time = millis();
-  
-  // Detectar início de queda livre
-  if (magnitude < threshold_freefall && !in_freefall) {
-    in_freefall = true;
-    freefall_start = current_time;
-    return false;
-  }
-  
-  // Verificar impacto após queda livre
-  if (in_freefall && magnitude > threshold_impact) {
-    unsigned long freefall_duration = current_time - freefall_start;
-    
-    if (freefall_duration >= min_freefall_duration) {
-      in_freefall = false;
-      return true; // QUEDA DETECTADA!
-    }
-  }
-  
-  // Reset se não houver impacto em tempo razoável
-  if (in_freefall && (current_time - freefall_start) > 2000) {
-    in_freefall = false;
-  }
-  
-  return false;
-}
-
-void storeSensorData(unsigned long ts, float ax, float ay, float az, float mag, bool fall) {
-  data_buffer[data_index] = {ts, ax, ay, az, mag, fall};
-  data_index = (data_index + 1) % 100;
-}
-
-void triggerAlert() {
-  Serial.println("🚨 ALERTA: QUEDA DETECTADA! 🚨");
-  Serial.println("Acionando sistema de emergência...");
-  
-  // Alerta visual e sonoro
-  for (int i = 0; i < 10; i++) {
-    digitalWrite(LED_ALERTA, HIGH);
-    digitalWrite(BUZZER, HIGH);
-    delay(100);
-    digitalWrite(LED_ALERTA, LOW);
-    digitalWrite(BUZZER, LOW);
-    delay(100);
-  }
-}
-```
-[projeto Wokwi](https://wokwi.com/projects/433694527469339649)
-
-## 📊 Análise de Dados e Resultados
-
-### Metodologia de Detecção
-O algoritmo implementado segue a seguinte lógica:
-
-1. **Monitoramento Contínuo**: Leitura da aceleração nos 3 eixos a 20Hz
-2. **Cálculo da Magnitude**: `magnitude = √(ax² + ay² + az²)`
-3. **Detecção de Queda Livre**: Magnitude < 0.5g por no mínimo 100ms
-4. **Detecção de Impacto**: Magnitude > 1.8g após período de queda livre (denário real de 3g)
-5. **Acionamento de Alerta**: LED + Buzzer + Mensagem serial
-
-### Dados Coletados (Exemplo de Simulação)
-
-```
-Timestamp,Ax,Ay,Az,Magnitude,Queda_Detectada
-1000,0.023,-0.045,0.987,0.989,0
-1050,-0.012,0.034,1.012,1.013,0
-1100,0.567,0.234,0.123,0.625,0  # Início movimento
-1150,0.123,0.087,0.234,0.289,0  # Queda livre detectada
-1200,0.045,0.023,0.156,0.164,0  # Continuação queda livre
-1250,2.345,1.876,3.234,4.421,1  # IMPACTO - QUEDA DETECTADA!
-```
-
-### Gráfico de Análise
-
-**Magnitude da Aceleração vs Tempo**
-- Linha base normal: ~1.0g (gravidade)
-- Pico de movimento: 0.6-0.8g  
-- Queda livre: <0.5g por 100-200ms
-- Impacto: >3.0g (pico de até 4.4g)
-
-### Estatísticas do Sistema
-- **Taxa de Amorstragem**: 20Hz (50ms entre leituras)
-- **Tempo de Resposta**: <250ms após impacto
-- **Sensibilidade**: Detecta quedas com queda livre mínima de 100ms
-- **Falsos Positivos**: Minimizados pela combinação queda livre + impacto
-
-![acceleration_timeline](docs/acceleration_timeline.png "Gráfico de Aceleração vs Tempo")
-![fall_analysis](docs/fall_analysis.png "Gráfico de Análise de Queda")
-
-## 🔄 Como Simular no Wokwi
-
-[Guia de Silumação Detalhada](docs/wokwi_guide.md)
-
-### Passo a Passo:
-1. **Monte o Circuito**: Configure as conexões conforme esquema
-2. **Carregue o Código**: Cole o código no editor do Wokwi
-3. **Simule Movimento Normal**: 
-   - Observe magnitude próxima a 1.0g
-   - LED desligado, sem alertas
-4. **Simule Queda**:
-   - Arraste o sensor para simular movimento brusco
-   - Primeiro: arraste para baixo (simula queda livre)
-   - Depois: movimento brusco para cima (simula impacto)
-5. **Observe Alertas**: LED pisca, buzzer toca, mensagem no serial
-
-### Arquivos de Funcionamento:
-- **Monitor Serial**: [logs](logs/wowki_logs.log)
-- **Alerta de Queda**: ![fall_alert](docs/drop_detected.jpg "Alerta de Queda")
-
-
-## 📈 Insights e Análises
-
-### Principais Descobertas:
-1. **Padrão de Queda**: Sempre precedido por período de baixa aceleração
-2. **Variabilidade**: Impactos variam entre 3.0g a 5.0g dependendo da altura
-3. **Tempo Crítico**: Janela de 100-500ms entre queda livre e impacto
-4. **Confiabilidade**: Sistema apresenta alta precisão com baixos falsos positivos
-
-### Aplicações Industriais:
-- **Trabalho em Altura**: Andaimes, torres, telhados
-- **Ambientes Perigosos**: Proximidade a máquinas pesadas
-- **Trabalhadores Isolados**: Monitoramento remoto de segurança
-- **Integração IoT**: Dados podem ser enviados para central de monitoramento via LORA
-
-## 🚀 Próximos Passos
-
-### Melhorias Futuras:
-1. **Conectividade WiFi**: Envio automático de alertas para equipe de segurança
-2. **Machine Learning**: Algoritmo mais sofisticado para diferentes tipos de queda  
-3. **Bateria e Autonomia**: Otimização para uso prolongado
-4. **Interface Mobile**: App para monitoramento em tempo real
-5. **Integração com EPI**: Incorporação em capacetes e cintos de segurança
-6. **Comunicação**: Integração com sistema de comunicação LORA (Long Range) para ambientes remotos
-
-### Expansão do Sistema:
-- **Rede de Sensores**: Múltiplos trabalhadores monitorados simultaneamente
-- **Dashboard Analytics**: Estatísticas de segurança e relatórios
-- **Integração CIPA**: Dados para comissão de segurança da empresa
-
-## 📁 Estrutura do Projeto
-
-```
-SENTINELA-SAFETY/
-├── 📂 analysis/
-│   └── 📄 data_analysis.py          # Script Python para análise de dados
-├── 📂 data/
-│   └── 📄 sample_data.csv           # Dados de exemplo coletados
-├── 📂 docs/
-│   ├── 🖼️ acceleration_timeline.png  # Gráfico timeline da aceleração
-│   ├── 🖼️ diagrama_pinagem.jpg      # Diagrama de pinagem do circuito
-│   ├── 🖼️ drop_detected.jpg         # Screenshot da detecção de queda
-│   ├── 🖼️ fall_analysis.png         # Gráfico de análise de quedas
-│   └── 📄 wokwi_guide.md           # Guia detalhado do Wokwi
-├── 📂 logs/
-│   └── 📄 wokwi_logs.log           # Logs de simulação do Wokwi
-├── 📂 screenshots/                  # Screenshots da simulação
-├── 📂 src/
-│   ├── 🔧 platformio.ini           # Configuração do PlatformIO
-│   └── 💻 wearable_safety.ino      # Código principal do ESP32
-├── 📂 venv/                        # Ambiente virtual Python
-├── 📄 README.md                    # Documentação principal
-├── 📄 requirements.txt             # Dependências Python
-└── 📄 wearable_safety_report.txt   # Relatório de análise
-```
-
-## 🚀 Como Executar o Projeto
-
-### 1. **Simulação no Wokwi**
-```bash
-# 1. Acesse: https://wokwi.com/projects/new/esp32
-# 2. Monte o circuito conforme docs/diagrama_pinagem.jpg ou use o diagrama 
-# 3. Cole o código de src/wearable_safety.ino
-# 4. Execute a simulação
-# 5. Siga o guia docs/wokwi_guide.md para simular quedas
-```
-[diagrama](docs/wowki_diagram.json)
-
-### 2. **Análise de Dados (Python)**
-
-#### **Pré-requisitos:**
-```bash
-# Instalar Python 3.8+ e pip
-python --version
-pip --version
-```
-
-#### **Configuração do Ambiente:**
-```bash
-# 1. Clonar o repositório
-git clone https://github.com/thiagoparaizo/sentinela-safety.git
-cd sentinela-safety
-
-# 2. Criar ambiente virtual
-python -m venv venv
-
-# 3. Ativar ambiente virtual
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# 4. Instalar dependências
-pip install -r requirements.txt
-```
-
-#### **Executar Análise:**
-```bash
-# Navegar para pasta de análise
-cd analysis
-
-# Executar script de análise
-python data_analysis.py
-
-# Ou usar dados customizados:
-python data_analysis.py --data-file ../data/sample_data.csv
-```
-
-#### **Saídas Geradas:**
-- `acceleration_timeline.png` - Gráfico temporal da aceleração
-- `fall_analysis.png` - Análise detalhada das quedas  
-- `wearable_safety_report.txt` - Relatório completo de estatísticas
-
-### 3. **Coleta de Dados do Wokwi**
-
-#### **Para usar seus próprios dados:**
-```bash
-# 1. Execute a simulação no Wokwi
-# 2. Copie os dados do Monitor Serial
-# 3. Salve em: data/meus_dados.csv
-# 4. Execute a análise:
-python analysis/data_analysis.py --data-file data/meus_dados.csv
-```
-
-#### **Formato esperado do CSV:**
-```csv
-Timestamp(ms),Ax(g),Ay(g),Az(g),Magnitude(g),Queda,Status
-1000,0.023,-0.045,0.987,0.989,0,NORMAL
-1050,-0.012,0.034,1.012,1.013,0,NORMAL
-...
-```
-
-## 🛠️ Dependências Python
-
-```txt
-pandas>=1.5.0
-numpy>=1.21.0
-matplotlib>=3.5.0
-seaborn>=0.11.0
-```
-
-## 📚 Referências Técnicas
-
-1. **MPU6050 Datasheet**: Especificações técnicas do sensor
-2. **ESP32 Programming Guide**: Documentação oficial da Espressif
-3. **Wokwi Simulator**: Plataforma de simulação de circuitos
-4. **Fall Detection Algorithms**: Revisão de literatura sobre detecção de quedas
-5. **Industrial Safety Standards**: Normas de segurança do trabalho
+## Challenge Reply - Fase 6 | Pipeline Integrado Completo
 
 ---
 
-**Data do Projeto**: Junho 2025  
-**Plataforma**: Wokwi Simulator + ESP32  
-**Status**: Protótipo Funcional
+## 📋 ÍNDICE
 
+1. [Visão Geral](#visão-geral)
+2. [Arquitetura do Sistema](#arquitetura)
+3. [Componentes Implementados](#componentes)
+4. [Como Executar](#execução)
+5. [Estrutura do Projeto](#estrutura)
+6. [Integração com Sprints Anteriores](#integração)
+7. [Demonstração em Vídeo](#vídeo)
+
+---
+
+## 🎯 VISÃO GERAL
+
+Sistema **fim-a-fim** de monitoramento de segurança industrial usando dispositivos wearables (ESP32 + MPU6050) para detecção automática de quedas, com pipeline completo de:
+
+✅ **Coleta de Dados** → ESP32/Wokwi simulado  
+✅ **Armazenamento** → Banco de dados relacional MySQL  
+✅ **Machine Learning** → Modelo de classificação de quedas (98.32% acurácia)  
+✅ **Visualização** → Dashboard interativo Streamlit  
+✅ **Alertas** → Sistema automatizado de notificações  
+
+---
+
+## 🏗️ ARQUITETURA DO SISTEMA
+
+![Arquitetura](docs/sentinela.drawio.png)
+
+```
+┌─────────────────┐
+│   ESP32 + MPU   │ ← Coleta (Sprint 2)
+│   (Wokwi/Real)  │
+└────────┬────────┘
+         │ Serial/CSV
+         ↓
+┌─────────────────┐
+│  Ingestão ETL   │
+│   Python/Pandas │
+└────────┬────────┘
+         │
+         ↓
+┌─────────────────┐
+│  Banco de Dados │ ← Modelagem (Sprint 3)
+│   MySQL 8.0     │
+│  5 Tabelas      │
+│  2 Views        │
+└────────┬────────┘
+         │
+         ↓
+┌─────────────────┐
+│   Modelo ML     │ ← Treinamento (Sprint 3)
+│ Random Forest   │
+│  Scikit-learn   │
+│  Acurácia: 98%  │
+└────────┬────────┘
+         │
+         ↓
+┌─────────────────┐
+│   Dashboard +   │ ← Visualização (Sprint 4)
+│    Alertas      │
+│   Streamlit     │
+└─────────────────┘
+```
+**projeto drawio**[sentinela_arquitetura.drawio](docs/sentinela_arquitetura.drawio)   
+
+### Fluxo de Dados:
+
+1. **ESP32** lê aceleração (20Hz) → gera CSV (993 registros)
+2. **ETL Python** carrega CSV → banco MySQL
+3. **Modelo ML** treina com dados → salva pickle (fall_detection_model.pkl)
+4. **Dashboard** consulta banco + modelo → exibe KPIs/alertas em tempo real
+
+---
+
+## 🔧 COMPONENTES IMPLEMENTADOS
+
+### 1️⃣ **Banco de Dados Relacional MySQL** (Sprint 3)
+
+**Arquivo**: `db/schema.sql`
+
+**Tabelas**:
+- `trabalhadores` - Cadastro de funcionários
+- `dispositivos` - Wearables ESP32
+- `leituras_sensores` - Dados do MPU6050 (993 registros)
+- `eventos_queda` - Quedas detectadas (4 eventos)
+- `alertas` - Notificações de emergência (3 alertas)
+
+**Views**:
+- `vw_quedas_por_trabalhador` - Agregação de quedas por trabalhador
+- `vw_alertas_pendentes` - Alertas não enviados
+
+**Evidências do Banco**:
+
+| Tabela | Screenshot |
+|--------|-----------|
+| Trabalhadores | ![Trabalhadores](db/select_table_trabalhadores.jpg) |
+| Dispositivos | ![Dispositivos](db/select_table_dispositivos.jpg) |
+| Leituras | ![Leituras](db/select_table_leituras_sensores.jpg) |
+| Eventos Queda | ![Eventos](db/select_table_eventos_queda.jpg) |
+| Alertas | ![Alertas](db/select_table_alertas.jpg) |
+| View Alertas Pendentes | ![View Alertas](db/select_view_alertas_pendentes.jpg) |
+| View Quedas/Trabalhador | ![View Quedas](db/select_view_quedas_por_trabalhador.jpg) |
+
+### 2️⃣ **Machine Learning** (Sprint 3)
+
+**Arquivo**: `ml/train_model.py`
+
+**Modelo**: Random Forest Classifier
+- **Features**: 10 (aceleração XYZ, magnitude, derivadas, ângulos)
+- **Target**: Queda (0/1)
+- **Dataset**: 993 amostras (989 normais, 4 quedas)
+- **Split**: 70% treino, 30% teste
+- **Métricas**: 
+  - Acurácia: **98.32%**
+  - Precision (Queda): 17% (devido ao desbalanceamento)
+  - Recall (Queda): **100%** (detectou todas as quedas no teste)
+
+**Visualizações**: `ml/model_results.png`
+
+![ML Results](ml/model_results.png)
+
+**Gráficos incluem**:
+- Matriz de Confusão
+- Feature Importance
+- Distribuição Real vs Predito
+- Métricas Resumidas
+
+### 3️⃣ **Dashboard Interativo** (Sprint 4)
+
+**Arquivo**: `dashboard/app.py`
+
+**Funcionalidades**:
+- 📊 KPIs em tempo real (993 leituras, 4 quedas, magnitude máx: 5.78g)
+- 📈 Gráficos de magnitude e status (Plotly interativo)
+- 🚨 Alertas críticos destacados (3 pendentes)
+- 📋 Histórico de eventos de queda com filtros
+- 🤖 Simulador de predição ML
+- 🔄 Atualização dinâmica (cache 30s)
+
+**Screenshots do Dashboard**:
+
+| Tela | Screenshot |
+|------|-----------|
+| Home | ![Home](dashboard/screenshot_dashboard_home.jpg) |
+| Alertas | ![Alertas](dashboard/screenshot_dashboard_alertas.jpg) |
+| Indicadores | ![Indicadores](dashboard/screenshot_dashboard_indicadore_magnitude_status_quedas.jpg) |
+| Histórico | ![Histórico](dashboard/screenshot_dashboard_historico_eventos_quedas.jpg) |
+
+### 4️⃣ **Sistema de Alertas** (Sprint 4)
+
+**Lógica**:
+- Magnitude > 2.0g → Alerta MODERADO
+- Magnitude > 3.0g → Alerta CRÍTICO
+- Status visual diferenciado no dashboard
+- Registro no banco para rastreabilidade
+- Relatório automático gerado: `logs/relatorio_alertas_20251004_114044.txt`
+
+**Exemplo de Alerta Gerado**:
+```
+ALERTA #1
+  Tipo: queda
+  Prioridade: ALTA
+  Trabalhador: João Silva (Produção)
+  Magnitude: 2.04g
+  Mensagem: ALERTA: Queda detectada com magnitude 2.04g
+  Data/Hora: 2025-10-04 13:40:40
+  Status: PENDENTE
+```
+
+---
+
+## 🚀 COMO EXECUTAR
+
+### **Pré-requisitos**
+
+```bash
+# Python 3.8+
+python --version
+
+# MySQL 8.0 via Docker
+docker --version
+
+# Instalar dependências Python
+pip install pandas numpy matplotlib seaborn scikit-learn joblib streamlit plotly mysql-connector-python
+```
+
+### **Setup do Banco MySQL**
+
+```bash
+# Iniciar container MySQL
+docker run -d --name mysql-sentinela \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=sentinela \
+  -e MYSQL_USER=sentinela \
+  -e MYSQL_PASSWORD=password \
+  -p 3306:3306 \
+  -v mysql_sentinela_data:/var/lib/mysql \
+  mysql:8.0
+
+# Verificar se está rodando
+docker ps
+
+# Executar schema SQL
+mysql -h localhost -u sentinela -p sentinela < db/schema.sql
+# (senha: password)
+```
+
+### **Opção 1: Pipeline Automático** (RECOMENDADO)
+
+```bash
+# Executar pipeline completo
+python pipeline.py
+
+# Ou com dashboard automático
+python pipeline.py --dashboard
+```
+
+**Saída esperada**:
+```
+======================================================================
+🏭 PIPELINE INTEGRADO - SISTEMA WEARABLE DE SEGURANÇA
+======================================================================
+
+🔍 Verificando dependências...
+   ✓ pandas
+   ✓ numpy
+   ✓ sklearn
+   ✓ Todas as dependências OK
+
+📊 Carregando dados no banco...
+✅ Carregados 993 leituras e 4 eventos de queda
+
+🤖 Treinando modelo de Machine Learning...
+✅ Modelo treinado!
+   Acurácia: 98.32%
+
+📄 Gerando relatório de alertas...
+   ✓ Relatório salvo
+
+======================================================================
+✅ PIPELINE EXECUTADO COM SUCESSO!
+======================================================================
+```
+
+### **Opção 2: Passo a Passo**
+
+```bash
+# 1. Carregar dados no MySQL
+python db/load_data.py
+
+# 2. Treinar modelo ML
+python ml/train_model.py
+
+# 3. Iniciar dashboard
+streamlit run dashboard/app.py
+```
+
+---
+
+## 📁 ESTRUTURA DO PROJETO (Sprint 4)
+
+```
+sentinela-safety/
+│
+├── 📂 analysis/              # Sprint 2 - Análise de dados
+│   ├── data_analysis.py
+│   ├── acceleration_timeline.png
+│   └── fall_analysis.png
+│
+├── 📂 data/                  # Sprint 2 - Dados coletados
+│   └── sample_data.csv       # 993 leituras do Wokwi
+│
+├── 📂 db/                    # Sprint 3/4 - Banco de dados
+│   ├── schema.sql           # ✨ DDL completo MySQL
+│   ├── load_data.py         # ✨ ETL para carga
+│   ├── select_table_*.jpg   # ✨ Screenshots das tabelas
+│   └── select_view_*.jpg    # ✨ Screenshots das views
+│
+├── 📂 ml/                    # Sprint 3/4 - Machine Learning
+│   ├── train_model.py       # ✨ Treinamento
+│   ├── fall_detection_model.pkl
+│   ├── scaler.pkl
+│   └── model_results.png    # ✨ Gráficos de análise
+│
+├── 📂 dashboard/             # Sprint 4 - Visualização
+│   ├── app.py               # ✨ Streamlit app
+│   └── screenshot_*.jpg     # ✨ Evidências do dashboard
+│
+├── 📂 docs/                  # Sprint 2/4 - Documentação
+│   ├── acceleration_timeline.png
+│   ├── fall_analysis.png
+│   ├── wokwi_guide.md
+│   ├── sentinela_arquitetura.drawio  # ✨ Diagrama editável
+│   └── sentinela.drawio.png          # ✨ Arquitetura visual
+│
+├── 📂 logs/                  # Sprint 4 - Relatórios
+│   ├── wokwi_logs.log
+│   └── relatorio_alertas_*.txt  # ✨ Relatórios gerados
+│
+├── 📂 src/                   # Sprint 2 - Código ESP32
+│   └── wearable_safety.ino
+│
+├── 📄 pipeline.py            # ✨ Pipeline integrado
+├── 📄 sentinela.db           # Banco MySQL (via Docker)
+├── 📄 requirements.txt
+└── 📄 README.md              # Este arquivo
+```
+
+---
+
+## 🔗 INTEGRAÇÃO COM SPRINTS ANTERIORES
+
+### **Sprint 1**: Arquitetura
+- Planejamento conceitual realizado
+- Diagrama criado: `docs/sentinela_arquitetura.drawio`
+
+### **Sprint 2**: Coleta de Dados ✅
+- **Entregue**: Sistema ESP32 + MPU6050 no Wokwi
+- **Integração Sprint 4**: 
+  - CSV gerado (`data/sample_data.csv`) → Entrada do pipeline
+  - 993 leituras simuladas → Treinamento do ML
+
+### **Sprint 3**: Banco + ML ✅
+- **Implementado**:
+  - DER com 5 tabelas + 2 views MySQL
+  - Script SQL completo (`db/schema.sql`)
+  - Modelo Random Forest treinado (98.32% acurácia)
+- **Integração Sprint 4**:
+  - Banco armazena dados → Dashboard consulta
+  - Modelo ML → Predições em tempo real
+
+### **Sprint 4**: Pipeline Integrado ✅
+- **Novo**:
+  - Script de automação (`pipeline.py`)
+  - Dashboard Streamlit completo
+  - Sistema de alertas funcional
+  - Relatórios automatizados
+
+---
+
+## 📊 DEMONSTRAÇÃO DOS RESULTADOS
+
+### **1. Dados no Banco**
+
+```sql
+-- Total de leituras
+SELECT COUNT(*) FROM leituras_sensores;
+-- Resultado: 993
+
+-- Quedas detectadas
+SELECT COUNT(*) FROM eventos_queda;
+-- Resultado: 4
+
+-- Alertas críticos/altos
+SELECT COUNT(*) FROM alertas WHERE nivel_prioridade IN ('critica', 'alta');
+-- Resultado: 3
+```
+
+### **2. Performance do Modelo ML**
+
+```
+CLASSIFICATION REPORT:
+              precision    recall  f1-score   support
+
+      Normal       1.00      0.98      0.99       297
+       Queda       0.17      1.00      0.29         1
+
+    accuracy                           0.98       298
+   macro avg       0.58      0.99      0.64       298
+weighted avg       1.00      0.98      0.99       298
+```
+
+**Nota**: Precision baixa da classe "Queda" devido ao forte desbalanceamento (989 normais vs 4 quedas). O Recall de 100% indica que o modelo detectou todas as quedas no conjunto de teste.
+
+### **3. Dashboard - KPIs Principais**
+
+| Métrica | Valor |
+|---------|-------|
+| Total de Leituras | 993 |
+| Quedas Detectadas | 4 |
+| Magnitude Máxima | 5.78g |
+| Alertas Pendentes | 3 |
+| Status Normal | 308 registros |
+| Status Queda Livre | 203 registros |
+| Status Movimento | 478 registros |
+
+### **4. Alertas Gerados**
+
+Ver relatório completo: `logs/relatorio_alertas_20251004_114044.txt`
+
+```
+TOTAL DE ALERTAS CRÍTICOS/ALTOS: 3
+
+- João Silva (Produção): 2.04g - ALTA
+- João Silva (Produção): 2.04g - ALTA  
+- João Silva (Produção): 2.04g - ALTA
+```
+---
+
+## 🔬 DECISÕES TÉCNICAS
+
+### **Por que MySQL (ao invés de SQLite)?**
+✅ Maior robustez para ambientes industriais  
+✅ Suporte a múltiplas conexões simultâneas  
+✅ Melhor performance para grandes volumes  
+✅ Fácil escalabilidade horizontal  
+✅ Docker facilita deploy e portabilidade
+
+### **Por que Random Forest?**
+✅ Robusto para dados de sensores  
+✅ Lida bem com outliers  
+✅ Interpretabilidade (feature importance)  
+✅ Sem necessidade de normalização complexa  
+✅ Funciona bem com datasets desbalanceados
+
+### **Por que Streamlit?**
+✅ Rápido desenvolvimento  
+✅ Interface intuitiva  
+✅ Suporte a gráficos interativos (Plotly)  
+✅ Fácil deploy  
+✅ Cache integrado para performance
+
+---
+
+## 🚦 COMO USAR O SISTEMA
+
+### **1. Simular Queda no Wokwi**
+1. Acesse: [Projeto Wokwi](https://wokwi.com/projects/433694527469339649)
+2. Inicie simulação
+3. Ajuste sliders do MPU6050:
+   - Queda livre: X=0.1, Y=0.3, Z=0.3 (magnitude <0.5g)
+   - Impacto: X=2.0, Y=0.3, Z=0.3 (magnitude >1.8g)
+4. Copie dados do Monitor Serial
+5. Salve como CSV
+
+Obs: Mais detalhes no [README.md (Sprint 2)](README_sprint2.md)
+
+
+### **2. Carregar no Banco**
+```bash
+# Salvar dados em data/novos_dados.csv
+python db/load_data.py
+```
+
+### **3. Retreinar Modelo**
+```bash
+python ml/train_model.py
+```
+
+### **4. Visualizar no Dashboard**
+```bash
+streamlit run dashboard/app.py
+```
+
+---
+
+## 📈 MÉTRICAS DE SUCESSO
+
+| Requisito Sprint 4 | Status | Evidência |
+|-------------------|--------|-----------|
+| Arquitetura integrada | ✅ | `docs/sentinela.drawio.png` |
+| Coleta/Ingestão | ✅ | CSV → MySQL (993 registros) |
+| Banco relacional | ✅ | 5 tabelas + 2 views + screenshots |
+| ML integrado | ✅ | Modelo 98.32% acurácia + gráficos |
+| Dashboard/KPIs | ✅ | Streamlit funcional + 4 screenshots |
+| Alertas | ✅ | 3 alertas gerados + relatório |
+| Reprodutibilidade | ✅ | Pipeline único comando |
+| Vídeo demonstração | ✅ | Link no README |
+
+---
+
+## 🔧 TROUBLESHOOTING
+
+### **Erro: MySQL Connection Refused**
+```bash
+# Verificar se container está rodando
+docker ps
+
+# Se não estiver, iniciar
+docker start mysql-sentinela
+
+# Verificar logs
+docker logs mysql-sentinela
+```
+
+### **Erro: Access Denied for user 'sentinela'**
+```bash
+# Verificar credenciais
+mysql -h localhost -u sentinela -p
+# Senha: password
+
+# Se necessário, recriar usuário
+docker exec -it mysql-sentinela mysql -u root -p
+# (senha root: root)
+mysql> GRANT ALL PRIVILEGES ON sentinela.* TO 'sentinela'@'%';
+mysql> FLUSH PRIVILEGES;
+```
+
+### **Dashboard não carrega**
+```bash
+# Verificar porta
+streamlit run dashboard/app.py --server.port 8502
+
+# Limpar cache
+streamlit cache clear
+```
+
+### **Modelo não encontrado**
+```bash
+# Treinar novamente
+python ml/train_model.py
+```
+
+---
+
+## 🎯 PRÓXIMOS PASSOS (Futuro)
+
+### **Melhorias Técnicas**:
+- [ ] Conectividade WiFi/MQTT real
+- [ ] Deploy em nuvem (AWS/Azure)
+- [ ] API REST para integração
+- [ ] Deep Learning (LSTM para séries temporais)
+- [ ] Balanceamento do dataset (SMOTE)
+
+### **Funcionalidades**:
+- [ ] Localização GPS do trabalhador
+- [ ] Múltiplos dispositivos simultâneos
+- [ ] Notificações push/email reais via SMTP
+- [ ] Análise preditiva de riscos
+- [ ] Dashboard mobile (PWA)
+- [ ] Integração com sistemas LORA
+
+---
+## ✅ CHECKLIST DE ENTREGA - SPRINT 4
+
+- [x] Arquitetura integrada documentada
+- [x] Pipeline executável (coleta→banco→ML→dashboard)
+- [x] Banco de dados MySQL (DER + SQL + screenshots)
+- [x] Modelo ML treinado (98.32% acurácia + gráficos)
+- [x] Dashboard funcional (KPIs + alertas + 4 screenshots)
+- [x] Sistema de alertas (3 gerados + relatório)
+- [x] README detalhado (setup + execução)
+- [x] Scripts versionados (GitHub)
+- [x] Prints/evidências de cada etapa
+- [x] Vídeo demonstração (até 5min)
+- [x] Integração com Sprints 1-3
+
+---
+
+**🏭 Sistema Wearable de Segurança Industrial | Challenge Reply - Fase 6 | FIAP 2025** 
 
 # SENTINELA SAFETY - A Revolução da Segurança do Trabalhador: A Importância do Wearable de Detecção de Quedas na Indústria 4.0
 ## O Cenário: Um Risco Silencioso e Constante
@@ -519,12 +683,17 @@ Nosso projeto prova que com criatividade, conhecimento técnico e propósito cla
 *Projeto desenvolvido com paixão pela inovação e compromisso com a segurança do trabalhador.*
 
 **Fase 4 Challenge Reply - Sprint 2 | Junho 2025**
+**Fase 5 Challenge Reply - Sprint 3 | Agosto 2025**
+**Fase 6 Challenge Reply - Sprint 4 | Setembro 2025**
 
 
+**Repositório**: [GitHub - SENTINELA-SAFETY](https://github.com/thiagoparaizo/sentinela-safety)
 ## 🗃 Histórico de lançamentos
 
-* 1.0.0 - 13/06/2025
+* 1.0.0 - 13/06/2025 - [README.md (Sprint 2)](README_sprint2.md)
+* 1.0.1 - 03/10/2025
 
 ## 📋 Licença
 
 <img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src="https://mirrors.creativecommons.org/presskit/icons/cc.svg?ref=chooser-v1"><img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src="https://mirrors.creativecommons.org/presskit/icons/by.svg?ref=chooser-v1"><p xmlns:cc="http://creativecommons.org/ns#" xmlns:dct="http://purl.org/dc/terms/"><a property="dct:title" rel="cc:attributionURL" href="https://github.com/agodoi/template">MODELO GIT FIAP</a> por <a rel="cc:attributionURL dct:creator" property="cc:attributionName" href="https://fiap.com.br">Fiap</a> está licenciado sobre <a href="http://creativecommons.org/licenses/by/4.0/?ref=chooser-v1" target="_blank" rel="license noopener noreferrer" style="display:inline-block;">Attribution 4.0 International</a>.</p>
+

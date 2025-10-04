@@ -6,6 +6,7 @@ Sprint 4 - Challenge Reply
 Executar: streamlit run dashboard/app.py
 """
 
+import mysql.connector
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -68,7 +69,14 @@ def carregar_modelo():
 @st.cache_data(ttl=30)
 def carregar_dados_db():
     """Carrega dados do banco SQLite"""
-    conn = sqlite3.connect('sentinela.db')
+    #from db.load_data import conectar_banco_mysql
+    conn = mysql.connector.connect(
+        host='localhost',
+        port=3306,
+        user='sentinela',
+        password='password',
+        database='sentinela'
+    )
     
     # Leituras recentes
     df_leituras = pd.read_sql_query("""
@@ -100,8 +108,8 @@ def carregar_dados_db():
 
 def main():
     # Header
-    st.title("🦺 Sistema Wearable de Segurança Industrial")
-    st.markdown("**Challenge Reply - Fase 5 | Sistema Integrado de Monitoramento**")
+    st.title("🦺 SENTINELA - Sistema Wearable de Segurança Industrial")
+    st.markdown("**Challenge Reply - Fase 6 | Sistema Integrado de Monitoramento**")
     
     # Sidebar
     with st.sidebar:
@@ -398,7 +406,7 @@ def main():
     
     # Footer
     st.markdown("---")
-    st.caption("🏭 Sistema Wearable de Segurança Industrial | Challenge Reply - Fase 5 | FIAP 2025")
+    st.caption("🏭 SENTINELA - Sistema Wearable de Segurança Industrial | Challenge Reply - Fase 6 | FIAP 2025")
 
 if __name__ == "__main__":
     main()

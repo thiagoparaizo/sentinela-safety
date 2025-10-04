@@ -16,14 +16,15 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 
 class FallDetectionML:
-    def __init__(self, db_path='sentinela.db'):
-        self.db_path = db_path
+    def __init__(self):
         self.model = None
         self.scaler = StandardScaler()
         
     def carregar_dados(self):
         """Carrega dados do banco SQLite"""
-        conn = sqlite3.connect(self.db_path)
+        
+        from db.load_data import conectar_banco_mysql
+        conn = conectar_banco_mysql()
         
         query = """
         SELECT 
