@@ -3,11 +3,11 @@
 ANÁLISE DE DADOS - SISTEMA WEARABLE DE SEGURANÇA
 ================================================
 
-Este script analisa os dados coletados do sistema wearable de detecção de quedas.
+Este script analisa os dados coletados do SENTINELA SAFETY, um sistema wearable de detecção de quedas.
 Gera gráficos e estatísticas para documentação do projeto.
 
-Autor: Equipe Challenge Reply
-Data: Junho 2025
+Autor: Thiago Paraizo
+Data: Junho 2025 
 """
 
 import pandas as pd
